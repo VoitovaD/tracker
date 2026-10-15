@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: dev
+      args:
+        - DOCKER_REGISTRY=registry.sberautotech.ru:5574/infra/docker
+        - PYTHON_VERSION=3.11
+    environment:
+      PIP_INDEX_URL: "https://artifactory.sberautotech.ru/artifactory/api/pypi/pypi/simple/"
+      PIP_TRUSTED_HOST: "artifactory.sberautotech.ru"
+      UV_CACHE_DIR: /code/.uv-cache
+    volumes:
+      - .:/code
+      - venv:/code/.venv
+      - uvcache:/code/.uv-cache
+    ports:
+      - "8000:8000"
+    env_file:
+      - dev.env
+    command: ["start", "8000"]
+
+volumes:
+  venv: {}
+  uvcache: {}
