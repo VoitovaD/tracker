@@ -1,26 +1,110 @@
+networks:
+  tracker:
+    driver: bridge
+    name: tracker
+
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-      target: dev
-      args:
-        - DOCKER_REGISTRY=registry.sberautotech.ru:5574/infra/docker
-        - PYTHON_VERSION=3.11
-    environment:
-      PIP_INDEX_URL: "https://artifactory.sberautotech.ru/artifactory/api/pypi/pypi/simple/"
-      PIP_TRUSTED_HOST: "artifactory.sberautotech.ru"
-      UV_CACHE_DIR: /code/.uv-cache
-    volumes:
-      - .:/code
-      - venv:/code/.venv
-      - uvcache:/code/.uv-cache
-    ports:
-      - "8000:8000"
+  db:
+    image: postgres:15.1-alpine
+    restart: always
     env_file:
-      - dev.env
-    command: ["start", "8000"]
+    - ./receiver/.env
+    ports:
+    - 5432:5432
+    volumes:
+    - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p ${DB_PORT}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+    - tracker
+
+  kafka:
+    image: apache/kafka:3.7.1
+    # container_name: kafka-tracker1
+    hostname: kafka
+    restart: always
+    ports:
+      - "9092:9092"
+      - "9094:9094" 
+    environment:
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+
+      KAFKA_NODE_ID: 0
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+    networks:
+      - tracker
+
+  kafka-ui:
+    # container_name: kafka-ui-tracker1
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8082:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: true
+      KAFKA_CLUSTERS_0_NAME: kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    networks:
+    - tracker
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: schema-registry
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - tracker
+
+  aggregators:
+    container_name: aggregators
+    image: processor
+    restart: always
+    build: 
+      context: ./processor
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    env_file:
+    - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+    - tracker
+
+
 
 volumes:
-  venv: {}
-  uvcache: {}
+  postgres:
+    name: tracker-db-data
