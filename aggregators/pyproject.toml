@@ -9,7 +9,15 @@ main = [
     "starlette>=1.7.0",
     "uvicorn>=0.54.0",
     "pydantic-settings>=2.15.0",
+    "aiokafka>=0.14.0",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.0",
+    "orjson>=3.13.0",
 ]
 dev = [
     "pytest>=9.0.2",
 ]
+
+[tool.uv]
+default-groups = ["main"]
