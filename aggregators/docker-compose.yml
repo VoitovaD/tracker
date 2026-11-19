@@ -107,4 +107,4 @@ services:
 
 volumes:
   postgres:
-    name: tracker-db-data
+    name: aggregators-db-data

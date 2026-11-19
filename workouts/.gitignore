@@ -1,0 +1,55 @@
+# === Python build artifacts ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# setuptools / uv artifacts
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# uv cache
+.uv-cache/
+.uv/
+
+# Test & coverage
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Lint / typing
+.mypy_cache/
+.dmypy.json
+dmypy.json
+ruff_cache/
+
+# Logs
+*.log
+
+# IDEs & editors
+.idea/
+.vscode/
+*.swp
+
+# Docker / compose
+*.pid
+*.tar
+*.bak
+.docker/
+
+# Translations (compiled)
+app/translations/*.mo
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+.env
